@@ -1,0 +1,104 @@
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+
+function RecruiterLayout() {
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const links = [
+    { name: "Dashboard", path: "/recruiter", icon: "🏠" },
+    { name: "Company Profile", path: "/recruiter/profile", icon: "🏢" },
+    { name: "Post Jobs", path: "/recruiter/jobs/create", icon: "➕" },
+    { name: "Manage Jobs", path: "/recruiter/jobs", icon: "💼" },
+    { name: "Applicants", path: "/recruiter/applicants", icon: "👥" },
+    { name: "Interviews", path: "/recruiter/interviews", icon: "📅" },
+    { name: "Notifications", path: "/recruiter/notifications", icon: "🔔" },
+  ];
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex">
+
+      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
+
+        <div className="p-6 border-b border-slate-800">
+          <h1 className="text-xl font-bold text-blue-400">
+            Campus Portal
+          </h1>
+
+          <p className="text-xs text-slate-500 mt-1">
+            Recruiter Portal
+          </p>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2">
+          {links.map((link) => (
+            <NavLink
+              key={link.path}
+              to={link.path}
+              end={link.path === "/recruiter"}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`
+              }
+            >
+              <span>{link.icon}</span>
+              <span>{link.name}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-slate-800">
+
+          <div className="px-4 py-3 mb-3">
+            <p className="text-sm font-medium">
+              {user.name || "Recruiter"}
+            </p>
+
+            <p className="text-xs text-slate-500 truncate">
+              {user.email}
+            </p>
+          </div>
+
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10"
+          >
+            🚪
+            <span>Logout</span>
+          </button>
+
+        </div>
+
+      </aside>
+
+      <main className="flex-1">
+
+        <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-8">
+          <h2 className="font-semibold">
+            Recruiter Dashboard
+          </h2>
+
+          <span className="text-sm text-slate-400">
+            Welcome, {user.name || "Recruiter"}
+          </span>
+        </header>
+
+        <section className="p-8">
+          <Outlet />
+        </section>
+
+      </main>
+
+    </div>
+  );
+}
+
+export default RecruiterLayout;
