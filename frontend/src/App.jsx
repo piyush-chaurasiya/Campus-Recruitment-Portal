@@ -13,6 +13,9 @@ import RecruiterLayout from "./pages/recruiter/RecruiterLayout";
 import PlacementLayout from "./pages/placement/PlacementLayout";
 import AdminLayout from "./pages/admin/AdminLayout";
 
+import Profile from "./pages/student/Profile";
+
+
 function Unauthorized() {
   return (
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
@@ -44,6 +47,7 @@ function App() {
         }
       >
         <Route index element={<StudentDashboard />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       {/* RECRUITER */}

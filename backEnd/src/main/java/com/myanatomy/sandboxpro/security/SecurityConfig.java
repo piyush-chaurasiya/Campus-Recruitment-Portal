@@ -37,21 +37,11 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-
-                        .requestMatchers("/api/student/**")
-                        .hasRole("STUDENT")
-
-                        .requestMatchers("/api/recruiter/**")
-                        .hasRole("RECRUITER")
-
-                        .requestMatchers("/api/placement/**")
-                        .hasRole("PLACEMENT_OFFICER")
-
-                        .requestMatchers("/api/admin/**")
-                        .hasRole("ADMIN")
-
-                        .anyRequest()
-                        .authenticated()
+                        .requestMatchers("/api/student/**").hasRole("STUDENT")
+                        .requestMatchers("/api/recruiter/**").hasRole("RECRUITER")
+                        .requestMatchers("/api/placement/**").hasRole("PLACEMENT_OFFICER")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .anyRequest().authenticated()
                 )
 
                 .addFilterBefore(

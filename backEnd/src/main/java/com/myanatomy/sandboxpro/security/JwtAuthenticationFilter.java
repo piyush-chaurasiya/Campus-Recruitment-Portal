@@ -24,6 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(
             JwtService jwtService,
             UserRepository userRepository) {
+
         this.jwtService = jwtService;
         this.userRepository = userRepository;
     }
@@ -37,7 +38,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
             filterChain.doFilter(request, response);
             return;
         }
@@ -54,16 +57,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 User user = userRepository.findByEmail(email)
                         .orElse(null);
 
-                if (user != null && user.isEnabled()
-                        && jwtService.isTokenValid(token, user)) {
+                if (user != null &&
+                        user.isEnabled() &&
+                        jwtService.isTokenValid(token, user)) {
 
-                    var authority = new SimpleGrantedAuthority(
-                            "ROLE_" + user.getRole().name()
-                    );
+                    SimpleGrantedAuthority authority =
+                            new SimpleGrantedAuthority(
+                                    "ROLE_" + user.getRole().name()
+                            );
 
-                    var authentication =
+                    UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
-                                    user,
+                                    user.getEmail(),
                                     null,
                                     List.of(authority)
                             );
@@ -74,7 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception ignored) {
-            // Invalid token remains unauthenticated
+            // Invalid JWT remains unauthenticated.
         }
 
         filterChain.doFilter(request, response);
