@@ -25,4 +25,7 @@ public interface AcademicVerificationRequestRepository
     findByStatusOrderBySubmittedAtAsc(
             AcademicVerificationStatus status
     );
+    List<AcademicVerificationRequest> findByStatus(
+        AcademicVerificationStatus status
+);
 }

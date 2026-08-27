@@ -62,6 +62,11 @@ function StudentLayout() {
       path: "/student/notifications",
       icon: "♢",
     },
+    {
+      name: "Settings",
+      path: "/student/settings",
+      icon: "⚙️"
+    },
   ];
 
   return (

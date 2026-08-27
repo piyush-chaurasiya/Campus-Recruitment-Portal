@@ -4,8 +4,7 @@ import com.myanatomy.sandboxpro.dto.CreateJobRequest;
 import com.myanatomy.sandboxpro.dto.JobResponse;
 import com.myanatomy.sandboxpro.service.JobService;
 
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,12 +20,20 @@ public class PlacementJobController {
     @PostMapping
     public JobResponse createJob(
             @RequestBody CreateJobRequest request,
-            @AuthenticationPrincipal UserDetails userDetails
+            Authentication authentication
     ) {
 
         return jobService.createJob(
                 request,
-                userDetails
+                authentication.getName()
         );
+    }
+
+    @PutMapping("/{id}/approve")
+    public JobResponse approveJob(
+            @PathVariable Long id
+    ) {
+
+        return jobService.approveJob(id);
     }
 }

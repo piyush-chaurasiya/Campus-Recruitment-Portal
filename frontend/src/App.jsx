@@ -12,7 +12,17 @@ import StudentLayout from "./pages/student/StudentLayout";
 import RecruiterLayout from "./pages/recruiter/RecruiterLayout";
 import PlacementLayout from "./pages/placement/PlacementLayout";
 import AdminLayout from "./pages/admin/AdminLayout";
+import StudentJobs from "./pages/student/StudentJobs";
+import StudentJobDetails from "./pages/student/StudentJobDetails";
+import StudentApplications from "./pages/student/StudentApplications";
+import StudentResume from "./pages/student/StudentResume";
+import StudentInterviews from "./pages/student/StudentInterviews";
+import StudentNotifications from "./pages/student/StudentNotifications";
+import StudentSettings from "./pages/student/StudentSettings";
 
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAcademicVerification from "./pages/admin/AdminAcademicVerification";
+import AdminJobVerification from "./pages/admin/AdminJobVerification";
 import Profile from "./pages/student/Profile";
 
 
@@ -47,7 +57,41 @@ function App() {
         }
       >
         <Route index element={<StudentDashboard />} />
-        <Route path="profile" element={<Profile />} />
+
+        <Route
+          path="jobs"
+          element={<StudentJobs />}
+        />
+
+        <Route
+          path="jobs/:id"
+          element={<StudentJobDetails />}
+        />
+
+        <Route
+          path="applications"
+          element={<StudentApplications />}
+        />
+
+        <Route
+          path="resume"
+          element={<StudentResume />}
+        />
+
+        <Route
+          path="interviews"
+          element={<StudentInterviews />}
+        />
+
+        <Route
+          path="notifications"
+          element={<StudentNotifications />}
+        />
+
+        <Route
+          path="settings"
+          element={<StudentSettings />}
+        />
       </Route>
 
       {/* RECRUITER */}
@@ -84,6 +128,21 @@ function App() {
         }
       >
         <Route index element={<AdminDashboard />} />
+
+        <Route
+          path="users"
+          element={<AdminUsers />}
+        />
+
+        <Route
+          path="academic-verification"
+          element={<AdminAcademicVerification />}
+        />
+
+        <Route
+          path="job-verification"
+          element={<AdminJobVerification />}
+        />
       </Route>
 
       {/* UNAUTHORIZED */}

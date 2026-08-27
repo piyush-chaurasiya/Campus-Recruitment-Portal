@@ -6,7 +6,9 @@ import com.myanatomy.sandboxpro.service.JobService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import java.util.List;
 
 @RestController
@@ -21,11 +23,10 @@ public class StudentJobController {
 
     @GetMapping
     public List<JobResponse> getJobs(
-            @AuthenticationPrincipal UserDetails userDetails
+            Authentication authentication
     ) {
-
         return jobService.getPublishedJobs(
-                userDetails
+                authentication.getName()
         );
     }
 

@@ -13,6 +13,8 @@ function AdminLayout() {
     { name: "System Settings", path: "/admin/settings", icon: "⚙️" },
     { name: "Audit Logs", path: "/admin/logs", icon: "📜" },
     { name: "Notifications", path: "/admin/notifications", icon: "🔔" },
+    {name: "Academic Verification", path: "/admin/academic-verification", icon: "🎓"},
+    {name: "Job Verification", path: "/admin/job-verification", icon: "💼",},
   ];
 
   const logout = () => {
@@ -20,7 +22,7 @@ function AdminLayout() {
     localStorage.removeItem("user");
     navigate("/login", { replace: true });
   };
-
+  
   return (
     <div className="min-h-screen bg-slate-950 text-white flex">
 

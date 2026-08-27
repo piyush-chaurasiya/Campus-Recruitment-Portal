@@ -13,7 +13,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import com.myanatomy.sandboxpro.dto.CreateJobRequest;
 
 @Service
 public class JobService {
@@ -30,18 +29,19 @@ public class JobService {
             EligibilityService eligibilityService
     ) {
         this.jobRepository = jobRepository;
-        this.studentProfileRepository =
-                studentProfileRepository;
+        this.studentProfileRepository = studentProfileRepository;
         this.userRepository = userRepository;
         this.eligibilityService = eligibilityService;
     }
 
-    public List<JobResponse> getPublishedJobs(
-            UserDetails userDetails
-    ) {
+    // =========================
+    // STUDENT - ALL APPROVED JOBS
+    // =========================
+
+    public List<JobResponse> getPublishedJobs(String email) {
 
         var user = userRepository
-                .findByEmail(userDetails.getUsername())
+                .findByEmail(email)
                 .orElseThrow();
 
         StudentProfile profile =
@@ -76,6 +76,10 @@ public class JobService {
                 .toList();
     }
 
+    // =========================
+    // STUDENT - SINGLE JOB
+    // =========================
+
     public JobResponse getJob(
             Long id,
             UserDetails userDetails
@@ -86,9 +90,11 @@ public class JobService {
                 .orElseThrow(() ->
                         new RuntimeException(
                                 "Job not found."
-                        ));
+                        )
+                );
 
         if (job.getStatus() != JobStatus.APPROVED) {
+
             throw new RuntimeException(
                     "This opportunity is not available."
             );
@@ -122,62 +128,133 @@ public class JobService {
 
         return response;
     }
-    public JobResponse createJob(
-        CreateJobRequest request,
-        UserDetails userDetails
-) {
 
-    Job job = new Job();
+        // =========================
+        // PLACEMENT OFFICER - CREATE JOB
+        // =========================
 
-    job.setTitle(request.getTitle());
-    job.setCompanyName(request.getCompanyName());
-    job.setDescription(request.getDescription());
-    job.setLocation(request.getLocation());
+        public JobResponse createJob(
+                CreateJobRequest request,
+                String username
+        ) {
 
-    job.setJobType(request.getJobType());
-    job.setWorkMode(request.getWorkMode());
+                Job job = new Job();
 
-    job.setPaid(request.getPaid());
-    job.setStipendOrSalary(
-            request.getStipendOrSalary()
-    );
+                job.setTitle(request.getTitle());
+                job.setCompanyName(request.getCompanyName());
+                job.setDescription(request.getDescription());
+                job.setLocation(request.getLocation());
 
-    job.setMinimumCgpa(
-            request.getMinimumCgpa()
-    );
+                job.setJobType(request.getJobType());
+                job.setWorkMode(request.getWorkMode());
 
-    job.setMaximumBacklogs(
-            request.getMaximumBacklogs()
-    );
+                job.setPaid(request.getPaid());
+                job.setStipendOrSalary(
+                        request.getStipendOrSalary()
+                );
 
-    job.setMinimumTenthPercentage(
-            request.getMinimumTenthPercentage()
-    );
+                job.setMinimumCgpa(
+                        request.getMinimumCgpa()
+                );
 
-    job.setMinimumTwelfthPercentage(
-            request.getMinimumTwelfthPercentage()
-    );
+                job.setMaximumBacklogs(
+                        request.getMaximumBacklogs()
+                );
 
-    job.setEligibleBranches(
-            request.getEligibleBranches()
-    );
+                job.setMinimumTenthPercentage(
+                        request.getMinimumTenthPercentage()
+                );
 
-    job.setApplicationDeadline(
-            request.getApplicationDeadline()
-    );
+                job.setMinimumTwelfthPercentage(
+                        request.getMinimumTwelfthPercentage()
+                );
 
-    job.setJoiningDate(
-            request.getJoiningDate()
-    );
+                job.setEligibleBranches(
+                        request.getEligibleBranches()
+                );
 
-    job.setCreatedBy(
-            userDetails.getUsername()
-    );
+                job.setApplicationDeadline(
+                        request.getApplicationDeadline()
+                );
 
-    job.setStatus(JobStatus.PENDING);
+                job.setJoiningDate(
+                        request.getJoiningDate()
+                );
 
-    Job savedJob = jobRepository.save(job);
+                job.setCreatedBy(username);
 
-    return JobResponse.from(savedJob);
-}
+                job.setStatus(JobStatus.PENDING);
+
+                Job savedJob =
+                        jobRepository.save(job);
+
+                return JobResponse.from(savedJob);
+        }
+
+        // =========================
+        // PLACEMENT OFFICER - APPROVE JOB
+        // =========================
+
+        public JobResponse approveJob(Long id) {
+
+                Job job = jobRepository
+                        .findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Job not found."
+                                )
+                        );
+
+                job.setStatus(
+                        JobStatus.APPROVED
+                );
+
+                return JobResponse.from(
+                        jobRepository.save(job)
+                );
+        }
+
+        // =========================
+        // ADMIN - ALL JOBS
+        // =========================
+
+        public List<JobResponse> getAllJobs() {
+
+        return jobRepository
+                .findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(JobResponse::from)
+                .toList();
+        }
+
+
+        // =========================
+        // ADMIN - REJECT JOB
+        // =========================
+
+        public JobResponse rejectJob(
+                Long id,
+                String reason
+        ) {
+
+        Job job = jobRepository
+                .findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Job not found."
+                        )
+                );
+
+        if (job.getStatus() != JobStatus.PENDING) {
+                throw new RuntimeException(
+                        "Only pending jobs can be rejected."
+                );
+        }
+
+        job.setStatus(JobStatus.REJECTED);
+
+        return JobResponse.from(
+                jobRepository.save(job)
+        );
+        }
 }
