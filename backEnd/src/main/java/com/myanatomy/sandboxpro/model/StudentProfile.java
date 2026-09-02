@@ -1,7 +1,19 @@
 package com.myanatomy.sandboxpro.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "student_profiles")
@@ -247,5 +259,39 @@ public class StudentProfile {
 
     public void setAcademicStatus(AcademicStatus academicStatus) {
         this.academicStatus = academicStatus;
+    }
+
+    @Lob
+    @Column(name = "resume_data", columnDefinition = "LONGBLOB")
+    private byte[] resumeData;
+
+    @Column(name = "resume_name")
+    private String resumeName;
+
+    @Column(name = "resume_content_type")
+    private String resumeContentType;
+
+    public byte[] getResumeData() {
+        return resumeData;
+    }
+
+    public void setResumeData(byte[] resumeData) {
+        this.resumeData = resumeData;
+    }
+
+    public String getResumeName() {
+        return resumeName;
+    }
+
+    public void setResumeName(String resumeName) {
+        this.resumeName = resumeName;
+    }
+
+    public String getResumeContentType() {
+        return resumeContentType;
+    }
+
+    public void setResumeContentType(String resumeContentType) {
+        this.resumeContentType = resumeContentType;
     }
 }

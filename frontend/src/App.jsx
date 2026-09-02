@@ -20,9 +20,12 @@ import StudentInterviews from "./pages/student/StudentInterviews";
 import StudentNotifications from "./pages/student/StudentNotifications";
 import StudentSettings from "./pages/student/StudentSettings";
 
-import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAcademicVerification from "./pages/admin/AdminAcademicVerification";
 import AdminJobVerification from "./pages/admin/AdminJobVerification";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminSettings from "./pages/admin/AdminSettings";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import Profile from "./pages/student/Profile";
 
 
@@ -49,50 +52,58 @@ function App() {
 
       {/* STUDENT */}
       <Route
-        path="/student"
-        element={
-          <ProtectedRoute allowedRoles={["STUDENT"]}>
-            <StudentLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<StudentDashboard />} />
+          path="/student"
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <StudentLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route
+            index
+            element={<StudentDashboard />}
+          />
 
-        <Route
-          path="jobs"
-          element={<StudentJobs />}
-        />
+          <Route
+            path="profile"
+            element={<Profile />}
+          />
 
-        <Route
-          path="jobs/:id"
-          element={<StudentJobDetails />}
-        />
+          <Route
+            path="jobs"
+            element={<StudentJobs />}
+          />
 
-        <Route
-          path="applications"
-          element={<StudentApplications />}
-        />
+          <Route
+            path="jobs/:id"
+            element={<StudentJobDetails />}
+          />
 
-        <Route
-          path="resume"
-          element={<StudentResume />}
-        />
+          <Route
+            path="applications"
+            element={<StudentApplications />}
+          />
 
-        <Route
-          path="interviews"
-          element={<StudentInterviews />}
-        />
+          <Route
+            path="resume"
+            element={<StudentResume />}
+          />
 
-        <Route
-          path="notifications"
-          element={<StudentNotifications />}
-        />
+          <Route
+            path="interviews"
+            element={<StudentInterviews />}
+          />
 
-        <Route
-          path="settings"
-          element={<StudentSettings />}
-        />
-      </Route>
+          <Route
+            path="notifications"
+            element={<StudentNotifications />}
+          />
+
+          <Route
+            path="settings"
+            element={<StudentSettings />}
+          />
+        </Route>
 
       {/* RECRUITER */}
       <Route
@@ -118,7 +129,7 @@ function App() {
         <Route index element={<PlacementDashboard />} />
       </Route>
 
-      {/* ADMIN */}
+      {/* ADMIN */}    
       <Route
         path="/admin"
         element={
@@ -127,11 +138,37 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<AdminDashboard />} />
+        <Route
+          index
+          element={<AdminDashboard />}
+        />
 
         <Route
           path="users"
           element={<AdminUsers />}
+        />
+
+        <Route
+          path="students"
+          element={
+            <AdminUsers defaultRole="STUDENT" />
+          }
+        />
+
+        <Route
+          path="recruiters"
+          element={
+            <AdminUsers defaultRole="RECRUITER" />
+          }
+        />
+
+        <Route
+          path="officers"
+          element={
+            <AdminUsers
+              defaultRole="PLACEMENT_OFFICER"
+            />
+          }
         />
 
         <Route
@@ -142,6 +179,21 @@ function App() {
         <Route
           path="job-verification"
           element={<AdminJobVerification />}
+        />
+
+        <Route
+          path="notifications"
+          element={<AdminNotifications />}
+        />
+
+        <Route
+          path="logs"
+          element={<AdminAuditLogs />}
+        />
+
+        <Route
+          path="settings"
+          element={<AdminSettings />}
         />
       </Route>
 

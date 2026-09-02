@@ -1,28 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 
-const roles = [
-  { value: "STUDENT", label: "Student", icon: "🎓" },
-  { value: "RECRUITER", label: "Recruiter", icon: "🏢" },
-  {
-    value: "PLACEMENT_OFFICER",
-    label: "Placement Officer",
-    icon: "👨‍💼",
-  },
-];
-
-function AdminUsers() {
+function AdminUsers({ defaultRole = "ALL" }) {
   const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-
-  const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState(defaultRole);
+  const [status, setStatus] = useState("ALL");
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [showPassword, setShowPassword] = useState(null);
+
+  const [creating, setCreating] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  const [newPassword, setNewPassword] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -32,16 +26,19 @@ function AdminUsers() {
   });
 
   useEffect(() => {
+    setRole(defaultRole);
+  }, [defaultRole]);
+
+  useEffect(() => {
     loadUsers();
   }, []);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
+      setError("");
 
-      const response = await api.get(
-        "/api/admin/users"
-      );
+      const response = await api.get("/api/admin/users");
 
       setUsers(response.data || []);
     } catch (err) {
@@ -54,77 +51,20 @@ function AdminUsers() {
     }
   };
 
-  const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+  // ================= CREATE USER =================
 
-      const searchText = search
-        .toLowerCase()
-        .trim();
-
-      const matchesSearch =
-        !searchText ||
-        user.name
-          ?.toLowerCase()
-          .includes(searchText) ||
-        user.email
-          ?.toLowerCase()
-          .includes(searchText);
-
-      const matchesRole =
-        roleFilter === "ALL" ||
-        user.role === roleFilter;
-
-      const matchesStatus =
-        statusFilter === "ALL" ||
-        (statusFilter === "ACTIVE" && user.enabled) ||
-        (statusFilter === "DISABLED" && !user.enabled);
-
-      return (
-        matchesSearch &&
-        matchesRole &&
-        matchesStatus
-      );
-    });
-  }, [
-    users,
-    search,
-    roleFilter,
-    statusFilter,
-  ]);
-
-  const handleCreate = async (e) => {
+  const createUser = async (e) => {
     e.preventDefault();
-
-    setError("");
-    setMessage("");
-
-    if (
-      !form.name ||
-      !form.email ||
-      !form.password ||
-      !form.role
-    ) {
-      setError("Please fill all fields.");
-      return;
-    }
-
-    if (form.password.length < 6) {
-      setError(
-        "Password must contain at least 6 characters."
-      );
-      return;
-    }
 
     try {
       setCreating(true);
+      setError("");
+      setSuccess("");
 
-      await api.post(
-        "/api/admin/users",
-        form
-      );
+      await api.post("/api/admin/users", form);
 
-      setMessage(
-        `${getRoleLabel(form.role)} account created successfully.`
+      setSuccess(
+        `${form.role.replaceAll("_", " ")} account created successfully.`
       );
 
       setForm({
@@ -134,25 +74,30 @@ function AdminUsers() {
         role: "STUDENT",
       });
 
-      setShowModal(false);
+      setShowCreate(false);
 
       await loadUsers();
-
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          err.response?.data ||
-          "Unable to create account."
+          "Unable to create user."
       );
     } finally {
       setCreating(false);
     }
   };
 
-  const toggleStatus = async (user) => {
+  // ================= STATUS =================
+
+  const changeStatus = async (user) => {
+    if (user.role === "ADMIN") {
+      setError("Admin accounts cannot be modified.");
+      return;
+    }
+
     try {
       setError("");
-      setMessage("");
+      setSuccess("");
 
       await api.put(
         `/api/admin/users/${user.id}/status`,
@@ -164,143 +109,242 @@ function AdminUsers() {
         }
       );
 
-      setMessage(
-        `${user.name}'s account is now ${
-          !user.enabled
-            ? "active"
-            : "disabled"
+      setSuccess(
+        `${user.name} is now ${
+          !user.enabled ? "active" : "disabled"
         }.`
       );
 
       await loadUsers();
-
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Unable to update account status."
+          "Unable to change account status."
       );
     }
   };
 
+  // ================= PASSWORD =================
+
+  const updatePassword = async (e) => {
+    e.preventDefault();
+
+    if (!showPassword) return;
+
+    if (newPassword.length < 6) {
+      setError(
+        "Password must contain at least 6 characters."
+      );
+      return;
+    }
+
+    if (showPassword.role === "ADMIN") {
+      setError(
+        "Admin passwords cannot be changed by another admin."
+      );
+      return;
+    }
+
+    try {
+      setUpdatingPassword(true);
+      setError("");
+      setSuccess("");
+
+      await api.put(
+        `/api/admin/users/${showPassword.id}/password`,
+        {
+          password: newPassword,
+        }
+      );
+
+      setSuccess(
+        `Password updated for ${showPassword.name}.`
+      );
+
+      setShowPassword(null);
+      setNewPassword("");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to update password."
+      );
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
+  // ================= DELETE =================
+
   const deleteUser = async (user) => {
+    if (user.role === "ADMIN") {
+      setError("Admin accounts cannot be deleted.");
+      return;
+    }
+
     const confirmed = window.confirm(
-      `Delete ${user.name}'s account?\n\nThis action cannot be undone.`
+      `Delete ${user.name}'s account? This action cannot be undone.`
     );
 
     if (!confirmed) return;
 
     try {
       setError("");
-      setMessage("");
+      setSuccess("");
 
       await api.delete(
         `/api/admin/users/${user.id}`
       );
 
-      setMessage(
-        "User deleted successfully."
+      setSuccess(
+        `${user.name}'s account deleted successfully.`
       );
 
       await loadUsers();
-
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          err.response?.data ||
           "Unable to delete user."
       );
     }
   };
 
-  const total = users.length;
+  // ================= FILTER =================
 
-  const students = users.filter(
-    (u) => u.role === "STUDENT"
-  ).length;
+  const filteredUsers = useMemo(() => {
+    const q = search.toLowerCase().trim();
 
-  const recruiters = users.filter(
-    (u) => u.role === "RECRUITER"
-  ).length;
+    return users.filter((user) => {
+      const searchMatch =
+        !q ||
+        user.name?.toLowerCase().includes(q) ||
+        user.email?.toLowerCase().includes(q);
 
-  const officers = users.filter(
-    (u) => u.role === "PLACEMENT_OFFICER"
-  ).length;
+      const roleMatch =
+        role === "ALL" || user.role === role;
+
+      const statusMatch =
+        status === "ALL" ||
+        (status === "ACTIVE"
+          ? user.enabled
+          : !user.enabled);
+
+      return (
+        searchMatch &&
+        roleMatch &&
+        statusMatch
+      );
+    });
+  }, [users, search, role, status]);
+
+  // ================= COUNTS =================
+
+  const counts = {
+    total: users.length,
+
+    students: users.filter(
+      (u) => u.role === "STUDENT"
+    ).length,
+
+    recruiters: users.filter(
+      (u) => u.role === "RECRUITER"
+    ).length,
+
+    officers: users.filter(
+      (u) => u.role === "PLACEMENT_OFFICER"
+    ).length,
+
+    admins: users.filter(
+      (u) => u.role === "ADMIN"
+    ).length,
+  };
 
   return (
     <div className="space-y-7">
 
       {/* HEADER */}
+
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
 
         <div>
-          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">
+          <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
             ADMINISTRATION
           </p>
 
-          <h1 className="text-3xl md:text-4xl font-bold">
+          <h1 className="text-3xl md:text-4xl font-bold mt-1">
             User Management
           </h1>
 
           <p className="text-slate-500 dark:text-slate-400 mt-2">
-            Create and manage student, recruiter and placement officer accounts.
+            Create and manage all platform accounts.
           </p>
         </div>
 
         <button
           onClick={() => {
             setError("");
-            setShowModal(true);
+            setShowCreate(true);
           }}
-          className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg"
+          className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-600/20 transition"
         >
           + Create User
         </button>
 
       </div>
 
-      {/* MESSAGES */}
-      {message && (
-        <div className="px-5 py-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
-          ✓ {message}
-        </div>
-      )}
+      {/* ALERTS */}
 
       {error && (
-        <div className="px-5 py-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400">
-          {error}
-        </div>
+        <Alert
+          type="error"
+          message={error}
+        />
+      )}
+
+      {success && (
+        <Alert
+          type="success"
+          message={success}
+        />
       )}
 
       {/* STATS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <Stat
-          title="Total Users"
-          value={total}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+
+        <MiniStat
           icon="👥"
+          title="Total"
+          value={counts.total}
         />
 
-        <Stat
-          title="Students"
-          value={students}
+        <MiniStat
           icon="🎓"
+          title="Students"
+          value={counts.students}
         />
 
-        <Stat
-          title="Recruiters"
-          value={recruiters}
+        <MiniStat
           icon="🏢"
+          title="Recruiters"
+          value={counts.recruiters}
         />
 
-        <Stat
-          title="Placement Officers"
-          value={officers}
+        <MiniStat
           icon="👨‍💼"
+          title="TPO"
+          value={counts.officers}
+        />
+
+        <MiniStat
+          icon="🛡️"
+          title="Admins"
+          value={counts.admins}
         />
 
       </div>
 
       {/* FILTERS */}
+
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
 
         <div className="grid md:grid-cols-3 gap-3">
@@ -310,383 +354,572 @@ function AdminUsers() {
             onChange={(e) =>
               setSearch(e.target.value)
             }
-            placeholder="Search by name or email..."
-            className="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500"
+            placeholder="Search name or email..."
+            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-white"
           />
 
           <select
-            value={roleFilter}
+            value={role}
             onChange={(e) =>
-              setRoleFilter(e.target.value)
+              setRole(e.target.value)
             }
-            className="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+            className="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none text-slate-900 dark:text-white"
           >
-            <option value="ALL">
-              All Roles
+            <option value="ALL">All Roles</option>
+            <option value="STUDENT">Students</option>
+            <option value="RECRUITER">Recruiters</option>
+            <option value="PLACEMENT_OFFICER">
+              Placement Officers
             </option>
-
-            {roles.map((role) => (
-              <option
-                key={role.value}
-                value={role.value}
-              >
-                {role.label}
-              </option>
-            ))}
+            <option value="ADMIN">Administrators</option>
           </select>
 
           <select
-            value={statusFilter}
+            value={status}
             onChange={(e) =>
-              setStatusFilter(e.target.value)
+              setStatus(e.target.value)
             }
-            className="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+            className="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none text-slate-900 dark:text-white"
           >
-            <option value="ALL">
-              All Status
-            </option>
-
-            <option value="ACTIVE">
-              Active
-            </option>
-
-            <option value="DISABLED">
-              Disabled
-            </option>
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="DISABLED">Disabled</option>
           </select>
 
         </div>
 
       </div>
 
-      {/* TABLE */}
+      {/* USERS */}
+
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
 
-        <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
-          <h2 className="font-bold text-lg">
-            Platform Users
-          </h2>
+        <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
 
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            {filteredUsers.length} user
-            {filteredUsers.length !== 1
-              ? "s"
-              : ""}{" "}
-            found
-          </p>
+          <div>
+            <h2 className="font-bold text-lg">
+              Platform Users
+            </h2>
+
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {filteredUsers.length} account
+              {filteredUsers.length !== 1 ? "s" : ""} found
+            </p>
+          </div>
+
+          <button
+            onClick={loadUsers}
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            ↻ Refresh
+          </button>
+
         </div>
 
         {loading ? (
-          <div className="p-8 space-y-4">
-            {[1, 2, 3, 4].map(
-              (item) => (
-                <div
-                  key={item}
-                  className="h-16 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse"
-                />
-              )
-            )}
+          <div className="p-5 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-20 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse"
+              />
+            ))}
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="py-16 text-center">
+          <div className="py-20 text-center">
 
-            <div className="text-5xl mb-4">
+            <div className="text-5xl">
               👥
             </div>
 
-            <h3 className="text-lg font-bold">
+            <h3 className="font-bold text-lg mt-4">
               No users found
             </h3>
 
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
               Try changing your filters or create a new account.
             </p>
 
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="divide-y divide-slate-200 dark:divide-slate-800">
 
-            <table className="w-full">
-
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-800/50">
-
-                  <th className="px-6 py-4">
-                    User
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Role
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Status
-                  </th>
-
-                  <th className="px-6 py-4 text-right">
-                    Actions
-                  </th>
-
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-
-                {filteredUsers.map(
-                  (user) => (
-                    <tr
-                      key={user.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
-                    >
-
-                      <td className="px-6 py-4">
-
-                        <div className="flex items-center gap-3">
-
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold">
-                            {user.name
-                              ?.charAt(0)
-                              ?.toUpperCase() ||
-                              "U"}
-                          </div>
-
-                          <div>
-                            <p className="font-semibold">
-                              {user.name}
-                            </p>
-
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                              {user.email}
-                            </p>
-                          </div>
-
-                        </div>
-
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <RoleBadge
-                          role={user.role}
-                        />
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <StatusBadge
-                          enabled={user.enabled}
-                        />
-                      </td>
-
-                      <td className="px-6 py-4">
-
-                        <div className="flex justify-end gap-2">
-
-                          <button
-                            onClick={() =>
-                              toggleStatus(user)
-                            }
-                            className={`px-3 py-2 rounded-lg text-sm font-semibold ${
-                              user.enabled
-                                ? "text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10"
-                                : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
-                            }`}
-                          >
-                            {user.enabled
-                              ? "Disable"
-                              : "Enable"}
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              deleteUser(user)
-                            }
-                            className="px-3 py-2 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                          >
-                            Delete
-                          </button>
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-                  )
-                )}
-
-              </tbody>
-
-            </table>
+            {filteredUsers.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                onStatusChange={changeStatus}
+                onPasswordChange={(u) => {
+                  setError("");
+                  setNewPassword("");
+                  setShowPassword(u);
+                }}
+                onDelete={deleteUser}
+              />
+            ))}
 
           </div>
         )}
 
       </div>
 
-      {/* CREATE MODAL */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      {/* CREATE */}
 
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800">
+      {showCreate && (
+        <CreateUserModal
+          form={form}
+          setForm={setForm}
+          creating={creating}
+          onClose={() => setShowCreate(false)}
+          onSubmit={createUser}
+        />
+      )}
 
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+      {/* PASSWORD */}
 
-              <div>
-                <h2 className="text-xl font-bold">
-                  Create User Account
-                </h2>
-
-                <p className="text-sm text-slate-500 mt-1">
-                  Create credentials for a platform user.
-                </p>
-              </div>
-
-              <button
-                onClick={() =>
-                  setShowModal(false)
-                }
-                className="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                ✕
-              </button>
-
-            </div>
-
-            <form
-              onSubmit={handleCreate}
-              className="p-6 space-y-5"
-            >
-
-              <Field
-                label="Full Name"
-                value={form.name}
-                onChange={(value) =>
-                  setForm({
-                    ...form,
-                    name: value,
-                  })
-                }
-                placeholder="Enter full name"
-              />
-
-              <Field
-                label="Email Address"
-                type="email"
-                value={form.email}
-                onChange={(value) =>
-                  setForm({
-                    ...form,
-                    email: value,
-                  })
-                }
-                placeholder="user@campus.com"
-              />
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Role
-                </label>
-
-                <select
-                  value={form.role}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      role: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500"
-                >
-                  {roles.map((role) => (
-                    <option
-                      key={role.value}
-                      value={role.value}
-                    >
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <Field
-                label="Temporary Password"
-                type="password"
-                value={form.password}
-                onChange={(value) =>
-                  setForm({
-                    ...form,
-                    password: value,
-                  })
-                }
-                placeholder="Minimum 6 characters"
-              />
-
-              <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-sm text-blue-700 dark:text-blue-300">
-                💡 Give these login credentials to the user after creating the account.
-              </div>
-
-              <div className="flex gap-3 pt-2">
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowModal(false)
-                  }
-                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-50"
-                >
-                  {creating
-                    ? "Creating..."
-                    : "Create Account"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+      {showPassword && (
+        <PasswordModal
+          user={showPassword}
+          password={newPassword}
+          setPassword={setNewPassword}
+          loading={updatingPassword}
+          onClose={() => {
+            setShowPassword(null);
+            setNewPassword("");
+          }}
+          onSubmit={updatePassword}
+        />
       )}
 
     </div>
   );
 }
 
-function Field({
+/* =====================================================
+   USER ROW
+===================================================== */
+
+function UserRow({
+  user,
+  onStatusChange,
+  onPasswordChange,
+  onDelete,
+}) {
+  const isAdmin = user.role === "ADMIN";
+
+  return (
+    <div className="p-5 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+
+      <div className="flex items-center gap-4 min-w-0">
+
+        <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg">
+          {user.name?.charAt(0)?.toUpperCase()}
+        </div>
+
+        <div className="min-w-0">
+
+          <div className="flex items-center gap-2">
+
+            <p className="font-bold truncate">
+              {user.name}
+            </p>
+
+            {isAdmin && (
+              <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400">
+                Protected
+              </span>
+            )}
+
+          </div>
+
+          <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
+            {user.email}
+          </p>
+
+        </div>
+
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+
+        <Badge text={formatRole(user.role)} />
+
+        <Badge
+          text={user.enabled ? "ACTIVE" : "DISABLED"}
+          status
+        />
+
+        {!isAdmin && (
+          <>
+            <button
+              onClick={() =>
+                onStatusChange(user)
+              }
+              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              {user.enabled ? "Disable" : "Enable"}
+            </button>
+
+            <button
+              onClick={() =>
+                onPasswordChange(user)
+              }
+              className="px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-500/10 transition"
+            >
+              🔑 Password
+            </button>
+
+            <button
+              onClick={() =>
+                onDelete(user)
+              }
+              className="px-3 py-2 rounded-lg text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition"
+            >
+              Delete
+            </button>
+          </>
+        )}
+
+        {isAdmin && (
+          <span className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Admin protected
+          </span>
+        )}
+
+      </div>
+
+    </div>
+  );
+}
+
+/* =====================================================
+   CREATE MODAL
+===================================================== */
+
+function CreateUserModal({
+  form,
+  setForm,
+  creating,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+
+      <form
+        onSubmit={onSubmit}
+        className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-7 shadow-2xl max-h-[90vh] overflow-y-auto"
+      >
+
+        <div className="flex justify-between gap-4">
+
+          <div>
+            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
+              ADMIN CONTROL
+            </p>
+
+            <h2 className="text-2xl font-bold mt-1">
+              Create User
+            </h2>
+
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              Create credentials for a new platform account.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-xl"
+          >
+            ×
+          </button>
+
+        </div>
+
+        <div className="space-y-4 mt-7">
+
+          <Input
+            label="Full Name"
+            value={form.name}
+            onChange={(value) =>
+              setForm({
+                ...form,
+                name: value,
+              })
+            }
+          />
+
+          <Input
+            label="Email Address"
+            type="email"
+            value={form.email}
+            onChange={(value) =>
+              setForm({
+                ...form,
+                email: value,
+              })
+            }
+          />
+
+          <Input
+            label="Initial Password"
+            type="password"
+            value={form.password}
+            onChange={(value) =>
+              setForm({
+                ...form,
+                password: value,
+              })
+            }
+          />
+
+          <div>
+
+            <label className="block text-sm font-semibold mb-2">
+              Account Type
+            </label>
+
+            <select
+              value={form.role}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  role: e.target.value,
+                })
+              }
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+            >
+
+              <option value="STUDENT">
+                🎓 Student
+              </option>
+
+              <option value="RECRUITER">
+                🏢 Recruiter
+              </option>
+
+              <option value="PLACEMENT_OFFICER">
+                👨‍💼 Placement Officer
+              </option>
+
+              <option value="ADMIN">
+                🛡️ Administrator
+              </option>
+
+            </select>
+
+          </div>
+
+          {form.role === "ADMIN" && (
+            <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20">
+              <p className="text-sm font-semibold text-purple-700 dark:text-purple-400">
+                🛡️ Protected Admin Account
+              </p>
+
+              <p className="text-xs text-purple-600/80 dark:text-purple-300/70 mt-1">
+                Other administrators cannot disable, delete or change the password of this account.
+              </p>
+            </div>
+          )}
+
+        </div>
+
+        <div className="flex gap-3 mt-7">
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={creating}
+            className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-50 transition"
+          >
+            {creating ? "Creating..." : "Create Account"}
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  );
+}
+
+/* =====================================================
+   PASSWORD MODAL
+===================================================== */
+
+function PasswordModal({
+  user,
+  password,
+  setPassword,
+  loading,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+
+      <form
+        onSubmit={onSubmit}
+        className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-7 shadow-2xl"
+      >
+
+        <div className="flex justify-between">
+
+          <div>
+            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
+              SECURITY
+            </p>
+
+            <h2 className="text-2xl font-bold mt-1">
+              Update Password
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-xl"
+          >
+            ×
+          </button>
+
+        </div>
+
+        <div className="mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
+          <p className="font-semibold">
+            {user.name}
+          </p>
+
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {user.email}
+          </p>
+        </div>
+
+        <div className="mt-5">
+
+          <label className="block text-sm font-semibold mb-2">
+            New Password
+          </label>
+
+          <input
+            required
+            minLength={6}
+            type="password"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+            placeholder="Enter new password"
+            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+          />
+
+          <p className="text-xs text-slate-500 mt-2">
+            Minimum 6 characters.
+          </p>
+
+        </div>
+
+        <div className="flex gap-3 mt-7">
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-50"
+          >
+            {loading
+              ? "Updating..."
+              : "Update Password"}
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  );
+}
+
+/* =====================================================
+   INPUT
+===================================================== */
+
+function Input({
   label,
+  type = "text",
   value,
   onChange,
-  placeholder,
-  type = "text",
 }) {
   return (
     <div>
+
       <label className="block text-sm font-semibold mb-2">
         {label}
       </label>
 
       <input
+        required
         type={type}
         value={value}
         onChange={(e) =>
           onChange(e.target.value)
         }
-        placeholder={placeholder}
-        className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500"
+        className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-white"
       />
+
     </div>
   );
 }
 
-function Stat({ title, value, icon }) {
+/* =====================================================
+   BADGE
+===================================================== */
+
+function Badge({
+  text,
+  status = false,
+}) {
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+    <span
+      className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+        status
+          ? text === "ACTIVE"
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+            : "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+          : "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+      }`}
+    >
+      {text}
+    </span>
+  );
+}
+
+/* =====================================================
+   MINI STAT
+===================================================== */
+
+function MiniStat({
+  icon,
+  title,
+  value,
+}) {
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:-translate-y-0.5 transition">
 
       <div className="text-2xl">
         {icon}
@@ -704,60 +937,42 @@ function Stat({ title, value, icon }) {
   );
 }
 
-function RoleBadge({ role }) {
-  const data = {
-    STUDENT: {
-      label: "Student",
-      className:
-        "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
-    },
+/* =====================================================
+   ALERT
+===================================================== */
 
-    RECRUITER: {
-      label: "Recruiter",
-      className:
-        "bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400",
-    },
-
-    PLACEMENT_OFFICER: {
-      label: "Placement Officer",
-      className:
-        "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
-    },
-  };
-
-  const item = data[role] || {
-    label: role,
-    className:
-      "bg-slate-100 text-slate-600",
-  };
+function Alert({
+  type,
+  message,
+}) {
+  const ok = type === "success";
 
   return (
-    <span
-      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${item.className}`}
-    >
-      {item.label}
-    </span>
-  );
-}
-
-function StatusBadge({ enabled }) {
-  return (
-    <span
-      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-        enabled
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-          : "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+    <div
+      className={`p-4 rounded-xl border ${
+        ok
+          ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
+          : "bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400"
       }`}
     >
-      {enabled ? "● Active" : "● Disabled"}
-    </span>
+      {ok ? "✓" : "⚠️"} {message}
+    </div>
   );
 }
 
-function getRoleLabel(role) {
-  return roles.find(
-    (item) => item.value === role
-  )?.label || role;
+/* =====================================================
+   ROLE FORMAT
+===================================================== */
+
+function formatRole(role) {
+  const names = {
+    ADMIN: "ADMIN",
+    STUDENT: "STUDENT",
+    RECRUITER: "RECRUITER",
+    PLACEMENT_OFFICER: "TPO",
+  };
+
+  return names[role] || role;
 }
 
 export default AdminUsers;

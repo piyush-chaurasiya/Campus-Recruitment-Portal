@@ -11,4 +11,6 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByStatus(JobStatus status);
 
     List<Job> findAllByOrderByCreatedAtDesc();
+
+    long countByStatus(JobStatus status);
 }

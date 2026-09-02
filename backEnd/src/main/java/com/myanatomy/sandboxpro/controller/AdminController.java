@@ -1,313 +1,357 @@
 package com.myanatomy.sandboxpro.controller;
 
-import com.myanatomy.sandboxpro.dto.AdminUserResponse;
-import com.myanatomy.sandboxpro.dto.CreateUserRequest;
+import com.myanatomy.sandboxpro.model.JobStatus;
 import com.myanatomy.sandboxpro.model.Role;
 import com.myanatomy.sandboxpro.model.User;
 import com.myanatomy.sandboxpro.repository.UserRepository;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import com.myanatomy.sandboxpro.model.JobStatus;
 import com.myanatomy.sandboxpro.repository.JobRepository;
-import com.myanatomy.sandboxpro.repository.AcademicVerificationRequestRepository;
+import com.myanatomy.sandboxpro.repository.JobApplicationRepository;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
+@CrossOrigin(origins = "*")
 public class AdminController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JobRepository jobRepository;
-    private final AcademicVerificationRequestRepository academicVerificationRequestRepository;
+    private final JobApplicationRepository jobApplicationRepository;
 
     public AdminController(
-        UserRepository userRepository,
-        PasswordEncoder passwordEncoder,
-        JobRepository jobRepository,
-        AcademicVerificationRequestRepository academicVerificationRequestRepository
-    ) {
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JobRepository jobRepository,
+            JobApplicationRepository jobApplicationRepository) {
+
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jobRepository = jobRepository;
-        this.academicVerificationRequestRepository =
-                academicVerificationRequestRepository;
+        this.jobApplicationRepository = jobApplicationRepository;
     }
 
-    // ==============================
-    // ADMIN DASHBOARD
-    // ==============================
+    // ================= DASHBOARD =================
 
     @GetMapping("/dashboard")
     public ResponseEntity<?> dashboard() {
 
         List<User> users = userRepository.findAll();
 
-        long totalUsers = users.size();
+        long total = users.size();
 
         long students = users.stream()
-                .filter(user -> user.getRole() == Role.STUDENT)
+                .filter(u -> u.getRole() == Role.STUDENT)
                 .count();
 
         long recruiters = users.stream()
-                .filter(user -> user.getRole() == Role.RECRUITER)
+                .filter(u -> u.getRole() == Role.RECRUITER)
                 .count();
 
         long officers = users.stream()
-                .filter(user ->
-                        user.getRole() == Role.PLACEMENT_OFFICER)
+                .filter(u -> u.getRole() == Role.PLACEMENT_OFFICER)
+                .count();
+
+        long admins = users.stream()
+                .filter(u -> u.getRole() == Role.ADMIN)
                 .count();
 
         long activeUsers = users.stream()
                 .filter(User::isEnabled)
                 .count();
 
-        long pendingJobs = jobRepository
-                .findByStatus(JobStatus.PENDING)
-                .size();
+        long disabledUsers = users.stream()
+                .filter(u -> !u.isEnabled())
+                .count();
 
-        long approvedJobs = jobRepository
-                .findByStatus(JobStatus.APPROVED)
-                .size();
+        long totalJobs = jobRepository.count();
 
-        long pendingAcademic =
-                academicVerificationRequestRepository
-                        .findByStatus(
-                                com.myanatomy.sandboxpro.model.AcademicVerificationStatus.PENDING
-                        )
-                        .size();
+        long pendingJobs =
+                jobRepository.countByStatus(JobStatus.PENDING);
 
-        return ResponseEntity.ok(
-                new DashboardResponse(
-                        totalUsers,
-                        students,
-                        recruiters,
-                        officers,
-                        activeUsers,
-                        pendingJobs,
-                        approvedJobs,
-                        pendingAcademic
-                )
-        );
+        long approvedJobs =
+                jobRepository.countByStatus(JobStatus.APPROVED);
+
+        long totalApplications =
+                jobApplicationRepository.count();
+
+        return ResponseEntity.ok(Map.ofEntries(
+                Map.entry("totalUsers", total),
+                Map.entry("students", students),
+                Map.entry("recruiters", recruiters),
+                Map.entry("placementOfficers", officers),
+                Map.entry("admins", admins),
+
+                Map.entry("activeUsers", activeUsers),
+                Map.entry("disabledUsers", disabledUsers),
+
+                Map.entry("totalJobs", totalJobs),
+                Map.entry("pendingJobs", pendingJobs),
+                Map.entry("approvedJobs", approvedJobs),
+
+                Map.entry("totalApplications", totalApplications)
+        ));
     }
 
-    // ==============================
-    // GET ALL USERS
-    // ==============================
+    // ================= ALL USERS =================
 
     @GetMapping("/users")
-    public ResponseEntity<List<AdminUserResponse>> getUsers() {
+    public ResponseEntity<List<UserResponse>> getUsers() {
 
-        List<AdminUserResponse> users =
-                userRepository.findAll()
-                        .stream()
-                        .map(AdminUserResponse::from)
-                        .toList();
+        List<UserResponse> users = userRepository.findAll()
+                .stream()
+                .map(UserResponse::from)
+                .toList();
 
         return ResponseEntity.ok(users);
     }
 
-    // ==============================
-    // CREATE USER
-    // ==============================
+    // ================= CREATE USER =================
 
     @PostMapping("/users")
     public ResponseEntity<?> createUser(
-            @RequestBody CreateUserRequest request
-    ) {
+            @RequestBody CreateUserRequest request) {
 
-        if (request.getName() == null ||
-                request.getName().isBlank()) {
-
-            return ResponseEntity.badRequest()
-                    .body("Name is required.");
-        }
-
-        if (request.getEmail() == null ||
-                request.getEmail().isBlank()) {
+        if (request.name == null ||
+                request.name.isBlank()) {
 
             return ResponseEntity.badRequest()
-                    .body("Email is required.");
+                    .body(Map.of("message", "Name is required."));
         }
 
-        if (request.getPassword() == null ||
-                request.getPassword().length() < 6) {
+        if (request.email == null ||
+                request.email.isBlank()) {
 
             return ResponseEntity.badRequest()
-                    .body("Password must contain at least 6 characters.");
+                    .body(Map.of("message", "Email is required."));
         }
 
-        if (request.getRole() == null) {
+        if (request.password == null ||
+                request.password.length() < 6) {
 
             return ResponseEntity.badRequest()
-                    .body("Role is required.");
+                    .body(Map.of(
+                            "message",
+                            "Password must contain at least 6 characters."
+                    ));
         }
 
-        if (request.getRole() == Role.ADMIN) {
+        if (request.role == null ||
+                request.role.isBlank()) {
 
             return ResponseEntity.badRequest()
-                    .body("Admin accounts cannot be created from this panel.");
+                    .body(Map.of("message", "Role is required."));
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        String email = request.email
+                .trim()
+                .toLowerCase();
 
-            return ResponseEntity.status(409)
-                    .body("A user with this email already exists.");
+        if (userRepository.existsByEmail(email)) {
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "message",
+                            "Email already exists."
+                    ));
         }
+
+        Role role;
+
+        try {
+
+            role = Role.valueOf(
+                    request.role
+                            .trim()
+                            .toUpperCase()
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "message",
+                            "Invalid role."
+                    ));
+        }
+
+        // ADMIN IS NOW ALLOWED
 
         User user = new User();
 
-        user.setName(request.getName().trim());
-        user.setEmail(request.getEmail().trim().toLowerCase());
+        user.setName(request.name.trim());
+        user.setEmail(email);
 
         user.setPassword(
                 passwordEncoder.encode(
-                        request.getPassword()
+                        request.password
                 )
         );
 
-        user.setRole(request.getRole());
+        user.setRole(role);
         user.setEnabled(true);
 
-        User savedUser =
-                userRepository.save(user);
+        User saved = userRepository.save(user);
 
         return ResponseEntity.ok(
-                AdminUserResponse.from(savedUser)
+                UserResponse.from(saved)
         );
     }
 
-    // ==============================
-    // ENABLE / DISABLE USER
-    // ==============================
+    // ================= ENABLE / DISABLE =================
 
     @PutMapping("/users/{id}/status")
-    public ResponseEntity<?> updateUserStatus(
+    public ResponseEntity<?> updateStatus(
             @PathVariable Long id,
-            @RequestParam boolean enabled
-    ) {
+            @RequestParam boolean enabled,
+            Authentication authentication) {
 
-        User user = userRepository
-                .findById(id)
-                .orElse(null);
+        User target = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found.")
+                );
 
-        if (user == null) {
+        // Admin cannot modify another admin
+        if (target.getRole() == Role.ADMIN) {
 
-            return ResponseEntity.notFound()
-                    .build();
+            return ResponseEntity.status(403)
+                    .body(Map.of(
+                            "message",
+                            "Admin accounts cannot be modified."
+                    ));
         }
 
-        user.setEnabled(enabled);
+        target.setEnabled(enabled);
 
-        User savedUser =
-                userRepository.save(user);
+        User saved = userRepository.save(target);
 
         return ResponseEntity.ok(
-                AdminUserResponse.from(savedUser)
+                UserResponse.from(saved)
         );
     }
 
-    // ==============================
-    // DELETE USER
-    // ==============================
+    // ================= PASSWORD UPDATE =================
+
+    @PutMapping("/users/{id}/password")
+    public ResponseEntity<?> updatePassword(
+            @PathVariable Long id,
+            @RequestBody PasswordRequest request) {
+
+        User target = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found.")
+                );
+
+        // Admin cannot change admin password
+        if (target.getRole() == Role.ADMIN) {
+
+            return ResponseEntity.status(403)
+                    .body(Map.of(
+                            "message",
+                            "Admin passwords cannot be changed by another admin."
+                    ));
+        }
+
+        if (request.password == null ||
+                request.password.length() < 6) {
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "message",
+                            "Password must contain at least 6 characters."
+                    ));
+        }
+
+        target.setPassword(
+                passwordEncoder.encode(
+                        request.password
+                )
+        );
+
+        userRepository.save(target);
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "Password updated successfully."
+                )
+        );
+    }
+
+    // ================= DELETE USER =================
 
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
 
-        User user = userRepository
-                .findById(id)
-                .orElse(null);
+        User target = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found.")
+                );
 
-        if (user == null) {
+        // Admin accounts are protected
+        if (target.getRole() == Role.ADMIN) {
 
-            return ResponseEntity.notFound()
-                    .build();
+            return ResponseEntity.status(403)
+                    .body(Map.of(
+                            "message",
+                            "Admin accounts cannot be deleted."
+                    ));
         }
 
-        if (user.getRole() == Role.ADMIN) {
-
-            return ResponseEntity.badRequest()
-                    .body("Admin account cannot be deleted here.");
-        }
-
-        userRepository.delete(user);
+        userRepository.delete(target);
 
         return ResponseEntity.ok(
-                "User deleted successfully."
+                Map.of(
+                        "message",
+                        "User deleted successfully."
+                )
         );
     }
 
-    // ==============================
-    // DASHBOARD RESPONSE
-    // ==============================
+    // ================= REQUEST DTOs =================
 
-    public static class DashboardResponse {
+    public static class CreateUserRequest {
 
-        private long totalUsers;
-        private long students;
-        private long recruiters;
-        private long placementOfficers;
-        private long activeUsers;
-        private long pendingJobs;
-        private long approvedJobs;
-        private long pendingAcademic;
+        public String name;
+        public String email;
+        public String password;
+        public String role;
+    }
 
-        public DashboardResponse(
-                long totalUsers,
-                long students,
-                long recruiters,
-                long placementOfficers,
-                long activeUsers,
-                long pendingJobs,
-                long approvedJobs,
-                long pendingAcademic
-        ) {
-            this.totalUsers = totalUsers;
-            this.students = students;
-            this.recruiters = recruiters;
-            this.placementOfficers = placementOfficers;
-            this.activeUsers = activeUsers;
-            this.pendingJobs = pendingJobs;
-            this.approvedJobs = approvedJobs;
-            this.pendingAcademic = pendingAcademic;
-        }
+    public static class PasswordRequest {
 
-        public long getTotalUsers() {
-            return totalUsers;
-        }
+        public String password;
+    }
 
-        public long getStudents() {
-            return students;
-        }
+    // ================= RESPONSE DTO =================
 
-        public long getRecruiters() {
-            return recruiters;
-        }
+    public static class UserResponse {
 
-        public long getPlacementOfficers() {
-            return placementOfficers;
-        }
+        public Long id;
+        public String name;
+        public String email;
+        public String role;
+        public boolean enabled;
 
-        public long getActiveUsers() {
-            return activeUsers;
-        }
+        public static UserResponse from(User user) {
 
-        public long getPendingJobs() {
-            return pendingJobs;
-        }
+            UserResponse response = new UserResponse();
 
-        public long getApprovedJobs() {
-            return approvedJobs;
-        }
+            response.id = user.getId();
+            response.name = user.getName();
+            response.email = user.getEmail();
+            response.role = user.getRole().name();
+            response.enabled = user.isEnabled();
 
-        public long getPendingAcademic() {
-            return pendingAcademic;
+            return response;
         }
     }
 }

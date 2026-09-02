@@ -1,20 +1,32 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
-const ThemeContext = createContext();
+const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("campus-theme") || "light";
+    return localStorage.getItem("theme") || "dark";
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("campus-theme", theme);
+    const root = document.documentElement;
+
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+
+    localStorage.setItem("theme", theme);
   }, [theme]);
 
   const toggleTheme = () => {
     setTheme((current) =>
-      current === "light" ? "dark" : "light"
+      current === "dark" ? "light" : "dark"
     );
   };
 

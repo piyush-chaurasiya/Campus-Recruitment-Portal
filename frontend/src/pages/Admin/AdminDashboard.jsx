@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 
 function AdminDashboard() {
-  const navigate = useNavigate();
-
   const user = JSON.parse(
     localStorage.getItem("user") || "{}"
   );
@@ -20,6 +17,7 @@ function AdminDashboard() {
   const loadDashboard = async () => {
     try {
       setLoading(true);
+      setError("");
 
       const response = await api.get(
         "/api/admin/dashboard"
@@ -37,268 +35,526 @@ function AdminDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-
-        <div className="h-10 w-72 rounded-xl bg-slate-200 dark:bg-slate-800" />
-
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
-          {[1, 2, 3, 4].map((item) => (
-            <div
-              key={item}
-              className="h-32 rounded-2xl bg-slate-200 dark:bg-slate-800"
-            />
-          ))}
-        </div>
-
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {
     return (
-      <div className="p-6 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600">
-        {error}
+      <div className="space-y-5">
+        <Header user={user} />
+
+        <div className="p-5 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400">
+          ⚠️ {error}
+        </div>
+
+        <button
+          onClick={loadDashboard}
+          className="px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
 
-      {/* HERO */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-8 text-white">
+      <Header
+        user={user}
+        onRefresh={loadDashboard}
+      />
 
-        <div className="relative z-10">
+      {/* PRIMARY STATS */}
 
-          <p className="text-sm font-semibold text-blue-100">
-            ADMIN CONTROL CENTER
-          </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
 
-          <h1 className="text-3xl md:text-4xl font-bold mt-2">
-            Welcome back, {user.name || "Administrator"} 👋
-          </h1>
+        <StatCard
+          icon="👥"
+          title="Total Users"
+          value={data.totalUsers}
+          subtitle={`${data.activeUsers} active accounts`}
+        />
 
-          <p className="text-blue-100 mt-3 max-w-2xl">
-            Monitor users, placement opportunities and academic verification from one place.
-          </p>
+        <StatCard
+          icon="🎓"
+          title="Students"
+          value={data.students}
+          subtitle="Registered students"
+        />
 
-        </div>
+        <StatCard
+          icon="🏢"
+          title="Recruiters"
+          value={data.recruiters}
+          subtitle="Recruiter accounts"
+        />
 
-        <div className="absolute -right-10 -bottom-20 text-[180px] opacity-10">
-          ⚙️
-        </div>
+        <StatCard
+          icon="📢"
+          title="Active Jobs"
+          value={data.approvedJobs}
+          subtitle={`${data.pendingJobs} pending approval`}
+        />
 
       </div>
 
-      {/* USER STATS */}
-      <section>
+      {/* SECONDARY STATS */}
 
-        <div className="flex items-center justify-between mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
 
-          <div>
-            <h2 className="text-xl font-bold">
-              Platform Overview
-            </h2>
+        <MiniCard
+          icon="👨‍💼"
+          title="Placement Officers"
+          value={data.placementOfficers}
+        />
 
-            <p className="text-sm text-slate-500 mt-1">
-              Current system statistics
-            </p>
+        <MiniCard
+          icon="🛡️"
+          title="Administrators"
+          value={data.admins}
+        />
+
+        <MiniCard
+          icon="💼"
+          title="Total Jobs"
+          value={data.totalJobs}
+        />
+
+        <MiniCard
+          icon="📋"
+          title="Applications"
+          value={data.totalApplications}
+        />
+
+      </div>
+
+      {/* OVERVIEW */}
+
+      <div className="grid lg:grid-cols-3 gap-5">
+
+        {/* USER OVERVIEW */}
+
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
+
+          <div className="flex items-center justify-between mb-6">
+
+            <div>
+              <h2 className="text-xl font-bold">
+                Platform Overview
+              </h2>
+
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Current system statistics
+              </p>
+            </div>
+
+            <div className="text-2xl">
+              📊
+            </div>
+
+          </div>
+
+          <div className="space-y-5">
+
+            <ProgressRow
+              label="Students"
+              value={data.students}
+              total={data.totalUsers}
+            />
+
+            <ProgressRow
+              label="Recruiters"
+              value={data.recruiters}
+              total={data.totalUsers}
+            />
+
+            <ProgressRow
+              label="Placement Officers"
+              value={data.placementOfficers}
+              total={data.totalUsers}
+            />
+
+            <ProgressRow
+              label="Administrators"
+              value={data.admins}
+              total={data.totalUsers}
+            />
+
           </div>
 
         </div>
 
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
+        {/* SYSTEM HEALTH */}
 
-          <Stat
-            icon="👥"
-            title="Total Users"
-            value={data.totalUsers}
-          />
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-6 shadow-xl shadow-blue-600/10">
 
-          <Stat
-            icon="🎓"
-            title="Students"
-            value={data.students}
-          />
+          <p className="text-blue-100 text-sm font-semibold">
+            SYSTEM STATUS
+          </p>
 
-          <Stat
-            icon="🏢"
-            title="Recruiters"
-            value={data.recruiters}
-          />
+          <h2 className="text-2xl font-bold mt-2">
+            Everything looks good
+          </h2>
 
-          <Stat
-            icon="👨‍💼"
-            title="Placement Officers"
-            value={data.placementOfficers}
-          />
+          <p className="text-blue-100 text-sm mt-3 leading-relaxed">
+            The placement platform is currently operational.
+            Monitor users, opportunities and applications from
+            the administration panel.
+          </p>
+
+          <div className="mt-7 space-y-3">
+
+            <HealthItem
+              label="Active Users"
+              value={data.activeUsers}
+            />
+
+            <HealthItem
+              label="Disabled Accounts"
+              value={data.disabledUsers}
+            />
+
+            <HealthItem
+              label="Pending Jobs"
+              value={data.pendingJobs}
+            />
+
+          </div>
 
         </div>
 
-      </section>
+      </div>
 
-      {/* PLACEMENT */}
-      <section>
+      {/* JOB ACTIVITY */}
 
-        <h2 className="text-xl font-bold mb-4">
-          Placement Activity
-        </h2>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="flex items-center justify-between">
 
-          <ActionStat
+          <div>
+            <h2 className="text-xl font-bold">
+              Placement Activity
+            </h2>
+
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Current job and application pipeline
+            </p>
+          </div>
+
+          <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+            LIVE DATA
+          </span>
+
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-4 mt-6">
+
+          <ActivityCard
             icon="⏳"
-            title="Pending Jobs"
+            title="Awaiting Approval"
             value={data.pendingJobs}
-            description="Waiting for admin review"
-            onClick={() =>
-              navigate("/admin/job-verification")
-            }
+            description="Jobs waiting for verification"
           />
 
-          <ActionStat
-            icon="✅"
-            title="Approved Jobs"
+          <ActivityCard
+            icon="🚀"
+            title="Published Opportunities"
             value={data.approvedJobs}
-            description="Currently published opportunities"
-            onClick={() =>
-              navigate("/admin/job-verification")
-            }
+            description="Approved jobs visible to students"
           />
 
-          <ActionStat
-            icon="🎓"
-            title="Academic Reviews"
-            value={data.pendingAcademic}
-            description="Students waiting for verification"
-            onClick={() =>
-              navigate("/admin/academic-verification")
-            }
+          <ActivityCard
+            icon="📝"
+            title="Applications"
+            value={data.totalApplications}
+            description="Total student applications"
           />
 
         </div>
 
-      </section>
+      </div>
 
       {/* QUICK ACTIONS */}
-      <section>
+
+      <div>
 
         <h2 className="text-xl font-bold mb-4">
           Quick Actions
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
           <QuickAction
-            icon="👤"
-            title="Create User"
-            description="Create Student, Recruiter or TPO account."
-            onClick={() =>
-              navigate("/admin/users")
-            }
+            icon="👥"
+            title="Manage Users"
+            description="Create and manage accounts"
+            href="/admin/users"
           />
 
           <QuickAction
             icon="🎓"
-            title="Review Academics"
-            description="Verify pending student academic requests."
-            onClick={() =>
-              navigate("/admin/academic-verification")
-            }
+            title="Academic Verification"
+            description="Review student records"
+            href="/admin/academic-verification"
           />
 
           <QuickAction
-            icon="💼"
-            title="Review Jobs"
-            description="Approve or reject placement opportunities."
-            onClick={() =>
-              navigate("/admin/job-verification")
-            }
+            icon="📢"
+            title="Job Management"
+            description="Review placement opportunities"
+            href="/admin/jobs"
+          />
+
+          <QuickAction
+            icon="⚙️"
+            title="System Settings"
+            description="Configure platform"
+            href="/admin/settings"
           />
 
         </div>
 
-      </section>
+      </div>
 
     </div>
   );
 }
 
-function Stat({
+/* =====================================================
+   HEADER
+===================================================== */
+
+function Header({
+  user,
+  onRefresh,
+}) {
+  return (
+    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+
+      <div>
+
+        <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
+          ADMINISTRATION
+        </p>
+
+        <h1 className="text-3xl md:text-4xl font-bold mt-1">
+          Welcome, {user.name || "Administrator"} 👋
+        </h1>
+
+        <p className="text-slate-500 dark:text-slate-400 mt-2">
+          Here's what's happening across your placement platform.
+        </p>
+
+      </div>
+
+      <button
+        onClick={onRefresh}
+        className="self-start md:self-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-semibold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+      >
+        ↻ Refresh
+      </button>
+
+    </div>
+  );
+}
+
+/* =====================================================
+   STAT CARD
+===================================================== */
+
+function StatCard({
+  icon,
+  title,
+  value,
+  subtitle,
+}) {
+  return (
+    <div className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-black/20 transition-all">
+
+      <div className="flex items-start justify-between">
+
+        <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-xl">
+          {icon}
+        </div>
+
+        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+          LIVE
+        </span>
+
+      </div>
+
+      <p className="text-sm text-slate-500 dark:text-slate-400 mt-5">
+        {title}
+      </p>
+
+      <h3 className="text-3xl font-bold mt-1">
+        {value}
+      </h3>
+
+      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+        {subtitle}
+      </p>
+
+    </div>
+  );
+}
+
+/* =====================================================
+   MINI CARD
+===================================================== */
+
+function MiniCard({
   icon,
   title,
   value,
 }) {
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:-translate-y-1 hover:shadow-lg transition">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex items-center gap-4">
 
-      <div className="text-3xl">
+      <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl">
         {icon}
       </div>
 
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">
-        {title}
-      </p>
+      <div>
 
-      <p className="text-3xl font-bold mt-1">
-        {value ?? 0}
-      </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {title}
+        </p>
+
+        <p className="text-2xl font-bold mt-1">
+          {value}
+        </p>
+
+      </div>
 
     </div>
   );
 }
 
-function ActionStat({
+/* =====================================================
+   PROGRESS
+===================================================== */
+
+function ProgressRow({
+  label,
+  value,
+  total,
+}) {
+  const percentage =
+    total > 0
+      ? Math.round((value / total) * 100)
+      : 0;
+
+  return (
+    <div>
+
+      <div className="flex justify-between text-sm mb-2">
+
+        <span className="font-medium">
+          {label}
+        </span>
+
+        <span className="text-slate-500 dark:text-slate-400">
+          {value} · {percentage}%
+        </span>
+
+      </div>
+
+      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
+          style={{
+            width: `${percentage}%`,
+          }}
+        />
+
+      </div>
+
+    </div>
+  );
+}
+
+/* =====================================================
+   HEALTH
+===================================================== */
+
+function HealthItem({
+  label,
+  value,
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/10">
+
+      <div className="flex items-center gap-2">
+
+        <span className="w-2 h-2 rounded-full bg-emerald-300" />
+
+        <span className="text-sm">
+          {label}
+        </span>
+
+      </div>
+
+      <span className="font-bold">
+        {value}
+      </span>
+
+    </div>
+  );
+}
+
+/* =====================================================
+   ACTIVITY
+===================================================== */
+
+function ActivityCard({
   icon,
   title,
   value,
   description,
-  onClick,
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:-translate-y-1 hover:shadow-xl transition"
-    >
+    <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
 
-      <div className="flex justify-between">
-
-        <span className="text-3xl">
-          {icon}
-        </span>
-
-        <span className="text-2xl font-bold">
-          {value ?? 0}
-        </span>
-
+      <div className="text-2xl">
+        {icon}
       </div>
 
-      <h3 className="font-bold mt-5">
+      <p className="font-semibold mt-4">
         {title}
-      </h3>
+      </p>
 
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+      <p className="text-3xl font-bold mt-1">
+        {value}
+      </p>
+
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
         {description}
       </p>
 
-    </button>
+    </div>
   );
 }
+
+/* =====================================================
+   QUICK ACTION
+===================================================== */
 
 function QuickAction({
   icon,
   title,
   description,
-  onClick,
+  href,
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="text-left p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-400 hover:shadow-lg transition"
+    <a
+      href={href}
+      className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 hover:-translate-y-1 transition-all"
     >
 
-      <div className="text-3xl">
+      <div className="text-2xl group-hover:scale-110 transition-transform">
         {icon}
       </div>
 
@@ -306,15 +562,48 @@ function QuickAction({
         {title}
       </h3>
 
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
         {description}
       </p>
 
-      <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mt-4">
+      <div className="text-blue-600 dark:text-blue-400 text-sm font-semibold mt-4">
         Open →
-      </p>
+      </div>
 
-    </button>
+    </a>
+  );
+}
+
+/* =====================================================
+   SKELETON
+===================================================== */
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-7 animate-pulse">
+
+      <div>
+        <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+
+        <div className="h-9 w-80 bg-slate-200 dark:bg-slate-800 rounded mt-3" />
+
+        <div className="h-4 w-96 bg-slate-200 dark:bg-slate-800 rounded mt-3" />
+      </div>
+
+      <div className="grid md:grid-cols-4 gap-5">
+
+        {[1, 2, 3, 4].map((item) => (
+          <div
+            key={item}
+            className="h-40 rounded-2xl bg-slate-200 dark:bg-slate-800"
+          />
+        ))}
+
+      </div>
+
+      <div className="h-72 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+
+    </div>
   );
 }
 
